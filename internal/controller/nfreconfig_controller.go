@@ -29,7 +29,8 @@ import (
 
 	"github.com/nephio-project/nephio/controllers/pkg/resource"
 	cudureconfigv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
-	giteaclient "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/gitaclient"
+
+	// giteaclient "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/gitaclient"
 	giteaclient2 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/gitaclient"
 	"github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/helpers"
 )
@@ -125,7 +126,7 @@ func (r *NFReconfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
-func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clusterInfo cudureconfigv1.ClusterInfo, giteaclient giteaclient.GiteaClient, nfReconfig *cudureconfigv1.NFReconfig) error {
+func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clusterInfo cudureconfigv1.ClusterInfo, giteaclient giteaclient2.GiteaClient, nfReconfig *cudureconfigv1.NFReconfig) error {
 	log := logf.FromContext(ctx)
 
 	user, _, err := giteaclient.GetMyUserInfo()
@@ -203,7 +204,7 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 
 }
 
-func (r *NFReconfigReconciler) HandleDependentClusterPkgNF(ctx context.Context, giteaclient giteaclient.GiteaClient, nfReconfig *cudureconfigv1.NFReconfig) error {
+func (r *NFReconfigReconciler) HandleDependentClusterPkgNF(ctx context.Context, giteaclient giteaclient2.GiteaClient, nfReconfig *cudureconfigv1.NFReconfig) error {
 	log := logf.FromContext(ctx)
 
 	user, _, err := giteaclient.GetMyUserInfo()
@@ -281,11 +282,11 @@ func (r *NFReconfigReconciler) HandleDependentClusterPkgNF(ctx context.Context, 
 	return err
 }
 
-func (r *NFReconfigReconciler) InitializeGiteaClient(ctx context.Context) (giteaclient.GiteaClient, *gitea.User, error) {
+func (r *NFReconfigReconciler) InitializeGiteaClient(ctx context.Context) (giteaclient2.GiteaClient, *gitea.User, error) {
 	log := logf.FromContext(ctx)
 
 	apiClient := resource.NewAPIPatchingApplicator(r.Client)
-	giteaClient, err := giteaclient.GetClient(ctx, apiClient)
+	giteaClient, err := giteaclient2.GetClient(ctx, apiClient)
 	if err != nil {
 		log.Error(err, "Failed to initialize Gitea client")
 		return nil, nil, err
