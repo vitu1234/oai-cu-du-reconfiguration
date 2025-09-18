@@ -81,3 +81,36 @@ func DeleteNFDeployment(ctx context.Context, k8sClient client.Client,
 
 	return nil
 }
+
+// Delete resource on workload cluster
+// DeleteNFDeployment deletes the given NFDeployment resource and all its Pods
+// DeleteNFDeployment deletes the NFDeployment CR and matching pods
+func DeleteConfigRefs(ctx context.Context, k8sClient client.Client,
+	name, namespace string) error {
+
+	// 1. Delete the NFDeployment custom resource
+	nf := &unstructured.Unstructured{}
+	nf.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "workload.nephio.org",
+		Version: "v1alpha1",
+		Kind:    "Config",
+	})
+	nf.SetName(name)
+	nf.SetNamespace(namespace)
+
+	if err := k8sClient.Delete(ctx, nf); err != nil {
+		return err
+	}
+
+	// 2.delete all pods in the namespace
+
+	if err := k8sClient.DeleteAllOf(
+		ctx,
+		&corev1.Pod{},
+		client.InNamespace(namespace),
+	); err != nil {
+		return err
+	}
+
+	return nil
+}

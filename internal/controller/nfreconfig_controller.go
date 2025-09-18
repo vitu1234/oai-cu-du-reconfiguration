@@ -304,6 +304,30 @@ func (r *NFReconfigReconciler) HandleDependentClusterPkgNF(ctx context.Context, 
 			}
 
 			log.Info("Changes committed and pushed", "repo", clusterInfo.Repo)
+
+			//get workloadcluster client
+			workloadClusterClient, err := helpers.GetWorkloadClusterClient(ctx, r.Client, clusterInfo.Name)
+			if err != nil {
+				log.Error(err, "error occured getting workload cluster client for "+clusterInfo.Name)
+			}
+
+			// list argo applications here
+			err = helpers.ListArgoApplications(ctx, workloadClusterClient)
+			if err != nil {
+				log.Error(err, "error occured listing argo apps "+clusterInfo.Name)
+			}
+
+			//delete existing pods in the cluster
+			err = helpers.DeleteConfigRefs(ctx, workloadClusterClient, clusterInfo.NFDeployment.Name, clusterInfo.NFDeployment.Namespace)
+			if err != nil {
+				log.Error(err, "error occured deleting nfdeployment resources for "+clusterInfo.Name)
+			}
+
+			//make argocd sync
+			err = helpers.TriggerArgoCDSyncWithKubeClient(workloadClusterClient, clusterInfo.Name, "argocd")
+			if err != nil {
+				log.Error(err, "error occured syncing argocd for "+clusterInfo.Name)
+			}
 		}
 	}
 
