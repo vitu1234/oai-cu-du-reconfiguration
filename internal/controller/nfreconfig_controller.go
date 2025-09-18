@@ -200,6 +200,12 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 			log.Error(err, "error occured getting workload cluster client for "+clusterInfo.Name)
 		}
 
+		// list argo applications here
+		err = helpers.ListArgoApplications(ctx, workloadClusterClient)
+		if err != nil {
+			log.Error(err, "error occured listing argo apps "+clusterInfo.Name)
+		}
+
 		//delete existing pods in the cluster
 		err = helpers.DeleteNFDeployment(ctx, workloadClusterClient, clusterInfo.NFDeployment.Name, clusterInfo.NFDeployment.Namespace)
 		if err != nil {

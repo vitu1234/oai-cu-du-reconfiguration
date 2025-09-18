@@ -30,16 +30,16 @@ spec:
   interfaces:
   - name: n2
     ipv4:
-      address: 192.168.80.55/24 #CUCP_N2_IP
-      gateway: 192.168.80.1 #CUCP_N2_GW
+      address: 192.168.8.55/24 #CUCP_N2_IP
+      gateway: 192.168.8.1 #CUCP_N2_GW
   - name: f1c
     ipv4:
-      address: 192.168.100.21/24 #CUCP_F1C_IP
-      gateway: 192.168.100.1 #CUCP_F1C_GW
+      address: 192.168.10.21/24 #CUCP_F1C_IP
+      gateway: 192.168.10.1 #CUCP_F1C_GW
   - name: e1
     ipv4:
-      address: 192.168.110.20/24 #CUCP_E1_IP
-      gateway: 192.168.110.1 #CUCP_E1_GW
+      address: 192.168.11.20/24 #CUCP_E1_IP
+      gateway: 192.168.11.1 #CUCP_E1_GW
   networkInstances:
   - name: vpc-ran
     interfaces:

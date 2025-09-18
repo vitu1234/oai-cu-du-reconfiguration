@@ -272,6 +272,8 @@ func CommitAndPush(ctx context.Context, cloneDir, branch, repoURL, userName, pas
 func TriggerArgoCDSyncWithKubeClient(k8sClient client.Client, appName, namespace string) error {
 	ctx := context.TODO()
 
+	fmt.Printf("Triggering ArgoCD sync for application %q in namespace %q\n", appName, namespace)
+
 	// Get the current Application object
 	var app argov1alpha1.Application
 	err := k8sClient.Get(ctx, types.NamespacedName{
@@ -310,5 +312,28 @@ func TriggerArgoCDSyncWithKubeClient(k8sClient client.Client, appName, namespace
 		return fmt.Errorf("failed to update application with sync operation: %w", err)
 	}
 
+	return nil
+}
+
+// listArgoApplications lists all Argo CD Applications in the argocd namespace
+func ListArgoApplications(ctx context.Context, k8sClient client.Client) error {
+	log := logf.FromContext(ctx)
+	var appList argov1alpha1.ApplicationList
+	if err := k8sClient.List(
+		ctx,
+		&appList,
+		&client.ListOptions{Namespace: "argocd"},
+	); err != nil {
+		return err
+	}
+
+	for _, app := range appList.Items {
+		log.Info("Found Argo CD Application",
+			"name", app.Name,
+			"project", app.Spec.Project,
+			"destNamespace", app.Spec.Destination.Namespace,
+			"destServer", app.Spec.Destination.Server,
+		)
+	}
 	return nil
 }
