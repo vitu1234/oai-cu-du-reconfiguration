@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	oaicudureconfigurarionv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
+	cudureconfigv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
 )
 
 var _ = Describe("NFReconfig Controller", func() {
@@ -40,13 +40,13 @@ var _ = Describe("NFReconfig Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		nfreconfig := &oaicudureconfigurarionv1.NFReconfig{}
+		nfreconfig := &cudureconfigv1.NFReconfig{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind NFReconfig")
 			err := k8sClient.Get(ctx, typeNamespacedName, nfreconfig)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &oaicudureconfigurarionv1.NFReconfig{
+				resource := &cudureconfigv1.NFReconfig{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,7 +59,7 @@ var _ = Describe("NFReconfig Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &oaicudureconfigurarionv1.NFReconfig{}
+			resource := &cudureconfigv1.NFReconfig{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 

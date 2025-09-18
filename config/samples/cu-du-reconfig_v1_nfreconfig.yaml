@@ -1,0 +1,61 @@
+apiVersion: cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr/v1
+kind: NFReconfig
+metadata:
+  labels:
+    app.kubernetes.io/name: oai-cu-du-reconfiguration
+    app.kubernetes.io/managed-by: kustomize
+  name: cucp-regional-sample
+  # namespace: oai-ran-cucp
+spec:
+  clusterInfo:
+    - name: regional
+      repo: http://192.168.28.111:31650/nephio/regional.git
+      clusterType: CUCP
+      nfDeployment:
+        name: cucp-regional
+        namespace: oai-ran-cucp
+    - name: edge
+      repo: http://192.168.28.111:31650/nephio/edge.git
+      clusterType: DU
+      configRef:
+        name: oai-cucp-config
+        namespace: oai-ran-du
+    - name: edge
+      repo: http://192.168.28.111:31650/nephio/edge.git
+      clusterType: CUUP
+      configRef:
+        name: oai-cucp-config
+        namespace: oai-ran-cuup
+  provider: cucp.openairinterface.org
+  interfaces:
+  - name: n2
+    ipv4:
+      address: 192.168.8.55/24 #CUCP_N2_IP
+      gateway: 192.168.8.1 #CUCP_N2_GW
+  - name: f1c
+    ipv4:
+      address: 192.168.10.21/24 #CUCP_F1C_IP
+      gateway: 192.168.10.1 #CUCP_F1C_GW
+  - name: e1
+    ipv4:
+      address: 192.168.11.20/24 #CUCP_E1_IP
+      gateway: 192.168.11.1 #CUCP_E1_GW
+  networkInstances:
+  - name: vpc-ran
+    interfaces:
+    - n2
+  - name: vpc-cudu-f1
+    interfaces:
+    - f1c
+  - name: vpc-cu-e1
+    interfaces:
+    - e1
+  parametersRefs:
+  - apiVersion: workload.nephio.org/v1alpha1
+    kind: NFConfig
+    name: cucp-nf-config
+    namespace: oai-ran-cucp
+  - name: cucp-ran-amf-core
+    apiVersion: ref.nephio.org/v1alpha1
+    kind: Config
+    namespace: oai-ran-cucp

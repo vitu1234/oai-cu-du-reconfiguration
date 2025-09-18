@@ -1,0 +1,172 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: nfreconfigs.cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr
+spec:
+  group: cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr
+  names:
+    kind: NFReconfig
+    listKind: NFReconfigList
+    plural: nfreconfigs
+    singular: nfreconfig
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: NFReconfig is the Schema for the nfreconfigs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of NFReconfig
+            properties:
+              clusterInfo:
+                items:
+                  properties:
+                    clusterType:
+                      type: string
+                    configRef:
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    name:
+                      type: string
+                    nfDeployment:
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    repo:
+                      type: string
+                  required:
+                  - clusterType
+                  - name
+                  - repo
+                  type: object
+                type: array
+              interfaces:
+                items:
+                  properties:
+                    ipv4:
+                      properties:
+                        address:
+                          type: string
+                        gateway:
+                          type: string
+                      required:
+                      - address
+                      - gateway
+                      type: object
+                    name:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              networkInstances:
+                items:
+                  properties:
+                    interfaces:
+                      items:
+                        type: string
+                      type: array
+                    name:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              parametersRefs:
+                items:
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              provider:
+                description: foo is an example field of NFReconfig. Edit nfreconfig_types.go
+                  to remove/update
+                type: string
+            required:
+            - clusterInfo
+            type: object
+          status:
+            description: status defines the observed state of NFReconfig
+            properties:
+              conditions:
+                description: |-
+                  conditions represent the current state of the NFReconfig resource.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Standard condition types include:
+                  - "Available": the resource is fully functional
+                  - "Progressing": the resource is being created or updated
+                  - "Degraded": the resource failed to reach or maintain its desired state
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

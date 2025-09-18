@@ -2,7 +2,7 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr_nfreconfigs.yaml
+- bases/cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr_nfreconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

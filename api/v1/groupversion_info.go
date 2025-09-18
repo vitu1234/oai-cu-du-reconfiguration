@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1 contains API Schema definitions for the oai-cu-du-reconfigurarion v1 API group.
+// Package v1 contains API Schema definitions for the cu-du-reconfig v1 API group.
 // +kubebuilder:object:generate=true
-// +groupName=oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr
+// +groupName=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr
 package v1
 
 import (
@@ -26,7 +26,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects.
-	GroupVersion = schema.GroupVersion{Group: "oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr", Version: "v1"}
+	GroupVersion = schema.GroupVersion{Group: "cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr", Version: "v1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

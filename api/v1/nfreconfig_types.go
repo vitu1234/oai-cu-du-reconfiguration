@@ -20,6 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ClusterType string
+
+const (
+	ClusterTypeCUCP ClusterType = "CUCP"
+	ClusterTypeCUUP ClusterType = "CUUP"
+	ClusterTypeDU   ClusterType = "DU"
+)
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -36,6 +44,25 @@ type NFReconfigSpec struct {
 	Interfaces       []NFInterface        `json:"interfaces,omitempty"`
 	NetworkInstances []NetworkInstance    `json:"networkInstances,omitempty"`
 	ParametersRefs   []ParameterReference `json:"parametersRefs,omitempty"`
+	ClusterInfo      []ClusterInfo        `json:"clusterInfo"`
+}
+
+type ClusterInfo struct {
+	Name         string       `json:"name"`
+	Repo         string       `json:"repo"`
+	NFDeployment NFDeployment `json:"nfDeployment,omitempty"`
+	ClusterType  ClusterType  `json:"clusterType"`
+	ConfigRef    ConfigRef    `json:"configRef,omitempty"`
+}
+
+type NFDeployment struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+type ConfigRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 type NFInterface struct {
@@ -84,7 +111,8 @@ type NFReconfigStatus struct {
 }
 
 type NFCondition struct {
-	Type               string      `json:"type,omitempty"`
+	// +kubebuilder:validation:Required
+	Type               string      `json:"type"`
 	Status             string      `json:"status,omitempty"` // True, False, Unknown
 	Reason             string      `json:"reason,omitempty"`
 	Message            string      `json:"message,omitempty"`

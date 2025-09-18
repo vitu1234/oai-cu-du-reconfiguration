@@ -35,7 +35,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	oaicudureconfigurarionv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
+	cudureconfigv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
 	"github.com/vitu1234/oai-cu-du-reconfiguration/v1/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
@@ -48,7 +48,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(oaicudureconfigurarionv1.AddToScheme(scheme))
+	utilruntime.Must(cudureconfigv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -160,7 +160,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "207b9be7.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr",
+		LeaderElectionID:       "207b9be7.cu-du-reconfig.dcnlab.ssu.ac.kr",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

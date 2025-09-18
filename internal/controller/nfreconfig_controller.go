@@ -19,12 +19,17 @@ package controller
 import (
 	"context"
 
+	"code.gitea.io/sdk/gitea"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	oaicudureconfigurarionv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
+	"github.com/nephio-project/nephio/controllers/pkg/resource"
+	cudureconfigv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
+	giteaclient "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/gitaclient"
+	"github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/helpers"
 )
 
 // NFReconfigReconciler reconciles a NFReconfig object
@@ -33,9 +38,9 @@ type NFReconfigReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr,resources=nfreconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr,resources=nfreconfigs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr,resources=nfreconfigs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -47,17 +52,139 @@ type NFReconfigReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
 func (r *NFReconfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
+	log := logf.FromContext(ctx)
+	log.Info("Reconciling NFReconfig")
 
-	// TODO(user): your logic here
+	// Fetch the Checkpoint instance
+	var nfReconfig cudureconfigv1.NFReconfig
+	if err := r.Get(ctx, req.NamespacedName, &nfReconfig); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("nfReconfig resource not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		log.Error(err, "Failed to get nfReconfig")
+		return ctrl.Result{}, err
+	}
+
+	// initialize gitea client
+	giteaclient, _, err := r.InitializeGiteaClient(ctx)
+	if err != nil {
+		log.Error(err, "gitea initialization failed")
+		return ctrl.Result{}, nil
+	}
+
+	// find the target cluster
+	var clusterInfoTarget cudureconfigv1.ClusterInfo
+	for _, clusterInfo := range nfReconfig.Spec.ClusterInfo {
+
+		//check if has NFDeployment key
+		if clusterInfo.NFDeployment == (cudureconfigv1.NFDeployment{}) {
+			continue
+		}
+
+		clusterInfoTarget = clusterInfo
+	}
+
+	err = r.HandleTargetClusterPkgNF(ctx, clusterInfoTarget, giteaclient, &nfReconfig)
+	if err != nil {
+		log.Error(err, err.Error())
+	}
+
+	// //get all repositories
+	// repos, resp, err := giteaclient.Get().ListMyRepos(gitea.ListReposOptions{})
+	// if err != nil {
+	// 	log.Error(err, "Failed to list Gitea repositories", "response", resp)
+	// }
+	// if len(repos) == 0 {
+	// 	log.Info("No repositories found for user", "username", user.UserName)
+	// }
+
+	// for _, repo := range repos {
+
+	// 	if repo.Name != "regional" {
+	// 		// log.Info("repo is not regional, skipping: " + repo.Name)
+	// 		continue
+	// 	}
+	// 	gitURL := os.Getenv("GIT_SERVER_URL")
+
+	// 	log.Info("repo is  regional, url: " + repo.CloneURL + " <------> ")
+	// 	_, matches, err := helpers.CheckRepoForMatchingManifests(ctx, gitURL+"/nephio/"+repo.Name+".git", repo.DefaultBranch, &nfReconfig)
+	// 	if err != nil {
+	// 		log.Error(err, "error scanning repo", "repo", repo.Name)
+	// 		continue
+	// 	}
+	// 	if len(matches) > 0 {
+	// 		log.Info("Found matching manifests",
+	// 			"repo", repo.Name,
+	// 			"files", matches)
+	// 	}
+	// }
 
 	return ctrl.Result{}, nil
+}
+
+func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clusterInfo cudureconfigv1.ClusterInfo, giteaclient giteaclient.GiteaClient, nfReconfig *cudureconfigv1.NFReconfig) error {
+	log := logf.FromContext(ctx)
+
+	user, _, err := giteaclient.GetMyUserInfo()
+	if err != nil {
+		return err
+	}
+
+	//get all repositories
+	repos, resp, err := giteaclient.Get().ListMyRepos(gitea.ListReposOptions{})
+	if err != nil {
+		log.Error(err, "Failed to list Gitea repositories", "response", resp)
+	}
+	if len(repos) == 0 {
+		log.Info("No repositories found for user", "username", user.UserName)
+	}
+
+	tmpDir, matches, err := helpers.CheckRepoForMatchingManifests(ctx, clusterInfo.Repo, "main", nfReconfig)
+	if err != nil {
+		log.Error(err, "error scanning repo", "repo", clusterInfo.Name)
+		return err
+	}
+	if len(matches) > 0 {
+		log.Info("Found matching manifests",
+			"repo", clusterInfo.Name,
+			"tmpDir", tmpDir,
+			"files", matches)
+	}
+
+	return err
+
+}
+
+func (r *NFReconfigReconciler) InitializeGiteaClient(ctx context.Context) (giteaclient.GiteaClient, *gitea.User, error) {
+	log := logf.FromContext(ctx)
+
+	apiClient := resource.NewAPIPatchingApplicator(r.Client)
+	giteaClient, err := giteaclient.GetClient(ctx, apiClient)
+	if err != nil {
+		log.Error(err, "Failed to initialize Gitea client")
+		return nil, nil, err
+	}
+	if !giteaClient.IsInitialized() {
+		log.Info("Gitea client not yet initialized, retrying later")
+		return nil, nil, err
+	}
+
+	user, resp, err := giteaClient.GetMyUserInfo()
+	if err != nil {
+		log.Error(err, "Failed to get Gitea user info", "response", resp)
+		return nil, nil, err
+	}
+	log.Info("Authenticated with Gitea", "username", user.UserName)
+
+	return giteaClient, user, nil
+
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NFReconfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&oaicudureconfigurarionv1.NFReconfig{}).
+		For(&cudureconfigv1.NFReconfig{}).
 		Named("nfreconfig").
 		Complete(r)
 }

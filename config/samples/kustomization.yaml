@@ -1,4 +1,4 @@
 ## Append samples of your project ##
 resources:
-- oai-cu-du-reconfigurarion_v1_nfreconfig.yaml
+- cu-du-reconfig_v1_nfreconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

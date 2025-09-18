@@ -1,7 +1,7 @@
-# This rule is not used by the project gitops-cu-du-reconfiguration itself.
+# This rule is not used by the project oai-cu-du-reconfiguration itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants full permissions ('*') over oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr.
+# Grants full permissions ('*') over cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr.
 # This role is intended for users authorized to modify roles and bindings within the cluster,
 # enabling them to delegate specific permissions to other users or groups as needed.
 
@@ -9,18 +9,18 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/name: gitops-cu-du-reconfiguration
+    app.kubernetes.io/name: oai-cu-du-reconfiguration
     app.kubernetes.io/managed-by: kustomize
   name: nfreconfig-admin-role
 rules:
 - apiGroups:
-  - oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr
+  - cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr
   resources:
   - nfreconfigs
   verbs:
   - '*'
 - apiGroups:
-  - oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr
+  - cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr
   resources:
   - nfreconfigs/status
   verbs:
