@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	gitplumbing "github.com/go-git/go-git/v5/plumbing"
@@ -17,6 +18,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	cudureconfigv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -260,6 +263,51 @@ func CommitAndPush(ctx context.Context, cloneDir, branch, repoURL, userName, pas
 		},
 	}); err != nil {
 		return fmt.Errorf("git push: %w", err)
+	}
+
+	return nil
+}
+
+// argocd sync
+func TriggerArgoCDSyncWithKubeClient(k8sClient client.Client, appName, namespace string) error {
+	ctx := context.TODO()
+
+	// Get the current Application object
+	var app argov1alpha1.Application
+	err := k8sClient.Get(ctx, types.NamespacedName{
+		Name:      appName,
+		Namespace: namespace,
+	}, &app)
+	if err != nil {
+		return fmt.Errorf("failed to get Argo CD application: %w", err)
+	}
+
+	// Deep copy to modify
+	// updated := app.DeepCopy()
+	// now := time.Now().UTC()
+
+	// Update Operation field to trigger sync
+	app.Operation = &argov1alpha1.Operation{
+		Sync: &argov1alpha1.SyncOperation{
+			Revision: "HEAD",
+			SyncStrategy: &argov1alpha1.SyncStrategy{
+				Apply: &argov1alpha1.SyncStrategyApply{
+					Force: true, // This enables kubectl apply --force
+				},
+			},
+		},
+		InitiatedBy: argov1alpha1.OperationInitiator{
+			Username: "gitea-client",
+		},
+		// StartedAt: &now,
+	}
+
+	//doing operations for this argocd application
+	// fmt.Printf("Triggering sync for application %v", app)
+	// fmt.Printf("Triggering sync for application %s in namespace %s\n", appName, namespace)
+
+	if err := k8sClient.Update(ctx, &app); err != nil {
+		return fmt.Errorf("failed to update application with sync operation: %w", err)
 	}
 
 	return nil

@@ -37,7 +37,11 @@ import (
 
 	cudureconfigv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
 	"github.com/vitu1234/oai-cu-du-reconfiguration/v1/internal/controller"
+
 	// +kubebuilder:scaffold:imports
+
+	argov1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	capiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 var (
@@ -47,9 +51,12 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(argov1alpha1.AddToScheme(scheme)) // ← Add this line
 
 	utilruntime.Must(cudureconfigv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
+	_ = capiv1beta1.AddToScheme(scheme)
 }
 
 // nolint:gocyclo

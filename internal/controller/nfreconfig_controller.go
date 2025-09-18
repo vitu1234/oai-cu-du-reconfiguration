@@ -26,13 +26,17 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/nephio-project/nephio/controllers/pkg/resource"
 	cudureconfigv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
 
 	// giteaclient "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/gitaclient"
+	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	giteaclient2 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/gitaclient"
 	"github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/helpers"
+	capiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // NFReconfigReconciler reconciles a NFReconfig object
@@ -190,6 +194,24 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 			return err
 		}
 
+		//get workloadcluster client
+		workloadClusterClient, err := helpers.GetWorkloadClusterClient(ctx, r.Client, clusterInfo.Name)
+		if err != nil {
+			log.Error(err, "error occured getting workload cluster client for "+clusterInfo.Name)
+		}
+
+		//delete existing pods in the cluster
+		err = helpers.DeleteNFDeployment(ctx, workloadClusterClient, clusterInfo.NFDeployment.Name, clusterInfo.NFDeployment.Namespace)
+		if err != nil {
+			log.Error(err, "error occured deleting nfdeployment resources for "+clusterInfo.Name)
+		}
+
+		//make argocd sync
+		err = helpers.TriggerArgoCDSyncWithKubeClient(workloadClusterClient, clusterInfo.Name, "argocd")
+		if err != nil {
+			log.Error(err, "error occured syncing argocd for "+clusterInfo.Name)
+		}
+
 		log.Info("Changes committed and pushed", "repo", clusterInfo.Repo)
 
 		//handle dependent cluster pkg nfs
@@ -307,10 +329,33 @@ func (r *NFReconfigReconciler) InitializeGiteaClient(ctx context.Context) (gitea
 
 }
 
+func (r *NFReconfigReconciler) mapClusterToClusterPolicy(ctx context.Context, obj client.Object) []reconcile.Request {
+	// log := logf.FromContext(ctx)
+	// log.Info("Mapping Cluster to ClusterPolicy", "cluster", obj.GetName())
+
+	// Assuming the ClusterPolicy is named after the Cluster
+	// clusterName := obj.GetName()
+	// policyName := fmt.Sprintf("%s-policy", clusterName)
+
+	// Create a request for the corresponding ClusterPolicy
+	// return []reconcile.Request{
+	// 	{NamespacedName: types.NamespacedName{Name: policyName}},
+	// }
+	return []reconcile.Request{}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *NFReconfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cudureconfigv1.NFReconfig{}).
+		Watches(
+			&capiv1beta1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterToClusterPolicy),
+		).
+		Watches(
+			&v1alpha1.Application{},
+			handler.EnqueueRequestsFromMapFunc(r.mapClusterToClusterPolicy),
+		).
 		Named("nfreconfig").
 		Complete(r)
 }
