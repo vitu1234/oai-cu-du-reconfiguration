@@ -1,0 +1,9 @@
+apiVersion: oai-cu-du-reconfigurarion.oai-cu-du-reconfigurarion.dcnlab.ssu.ac.kr/v1
+kind: NFReconfig
+metadata:
+  labels:
+    app.kubernetes.io/name: gitops-cu-du-reconfiguration
+    app.kubernetes.io/managed-by: kustomize
+  name: nfreconfig-sample
+spec:
+  # TODO(user): Add fields here
