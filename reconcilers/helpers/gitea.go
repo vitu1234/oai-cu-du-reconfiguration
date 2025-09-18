@@ -26,7 +26,7 @@ type IPInfo struct {
 }
 
 // CheckRepoForMatchingManifests clones a repo and searches YAML files for a name/namespace match.
-func CheckRepoForMatchingManifests(ctx context.Context, repoURL string, branch string, nf *cudureconfigv1.NFReconfig) (cloneDirectory string, matchingFiles []string, err error) {
+func CheckRepoForMatchingManifests(ctx context.Context, repoURL string, branch string, clusterInfo *cudureconfigv1.ClusterInfo, typeResource string) (cloneDirectory string, matchingFiles []string, err error) {
 
 	log := logf.FromContext(ctx)
 
@@ -84,14 +84,22 @@ func CheckRepoForMatchingManifests(ctx context.Context, repoURL string, branch s
 				return err
 			}
 
-			// if obj.Metadata.Name == nf.Name && obj.Metadata.Namespace == nf.Namespace {
+			if typeResource == "NFDeployment" {
+				if obj.Metadata.Name == clusterInfo.NFDeployment.Name && obj.Metadata.Namespace == clusterInfo.NFDeployment.Namespace {
+					matches = append(matches, path)
+					// no break: a file can have multiple docs
+				}
+			} else {
+				if obj.Metadata.Name == clusterInfo.ConfigRef.Name && obj.Metadata.Namespace == clusterInfo.ConfigRef.Namespace {
+					matches = append(matches, path)
+					// no break: a file can have multiple docs
+				}
+			}
+
+			// if obj.Metadata.Name == "cucp-regional" && obj.Metadata.Namespace == "oai-ran-cucp" {
 			// 	matches = append(matches, path)
 			// 	// no break: a file can have multiple docs
 			// }
-			if obj.Metadata.Name == "cucp-regional" && obj.Metadata.Namespace == "oai-ran-cucp" {
-				matches = append(matches, path)
-				// no break: a file can have multiple docs
-			}
 		}
 		return nil
 	}
@@ -103,7 +111,7 @@ func CheckRepoForMatchingManifests(ctx context.Context, repoURL string, branch s
 	return tmpDir, matches, nil
 }
 
-func UpdateInterfaceIPs(path string, newIPs map[string]IPInfo) error {
+func UpdateInterfaceIPsNFDeployment(path string, newIPs map[string]IPInfo) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -142,6 +150,69 @@ func UpdateInterfaceIPs(path string, newIPs map[string]IPInfo) error {
 	if err != nil {
 		return err
 	}
+	return os.WriteFile(path, out, 0644)
+}
+
+// UpdateInterfaceIPsConfigRefs updates the IP addresses and gateways
+// in a manifest of kind Config that contains nested NFDeployment spec.
+func UpdateInterfaceIPsConfigRefs(path string, newIPs map[string]IPInfo) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	var doc map[string]interface{}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return err
+	}
+
+	// Drill down to spec.config.spec.interfaces
+	spec, ok := doc["spec"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	config, ok := spec["config"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	nfSpec, ok := config["spec"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	ifaces, ok := nfSpec["interfaces"].([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, iface := range ifaces {
+		ifaceMap, ok := iface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, ok := ifaceMap["name"].(string)
+		if !ok {
+			continue
+		}
+		if info, ok := newIPs[name]; ok {
+			if ipv4, ok := ifaceMap["ipv4"].(map[string]interface{}); ok {
+				if info.Address != "" {
+					ipv4["address"] = info.Address
+				}
+				if info.Gateway != "" {
+					ipv4["gateway"] = info.Gateway
+				}
+			}
+		}
+	}
+
+	out, err := yaml.Marshal(doc)
+	if err != nil {
+		return err
+	}
+
 	return os.WriteFile(path, out, 0644)
 }
 

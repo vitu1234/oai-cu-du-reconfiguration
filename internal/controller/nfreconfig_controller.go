@@ -142,7 +142,7 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 		log.Info("No repositories found for user", "username", user.UserName)
 	}
 
-	tmpDir, matches, err := helpers.CheckRepoForMatchingManifests(ctx, clusterInfo.Repo, "main", nfReconfig)
+	tmpDir, matches, err := helpers.CheckRepoForMatchingManifests(ctx, clusterInfo.Repo, "main", &clusterInfo, "NFDeployment")
 	if err != nil {
 		log.Error(err, "error scanning repo", "repo", clusterInfo.Name)
 		return err
@@ -167,7 +167,7 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 
 		for _, f := range matches {
 			// fullPath := filepath.Join(tmpDir, f)
-			if err := helpers.UpdateInterfaceIPs(f, newIPs); err != nil {
+			if err := helpers.UpdateInterfaceIPsNFDeployment(f, newIPs); err != nil {
 				log.Error(err, "failed to update IPs in manifest", "file", f)
 				return err
 			}
@@ -176,7 +176,7 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 
 		// commit & push changes back to Gitea
 		log.Info("will commit and push changes back to git here")
-		commitMsg := fmt.Sprintf("Update interface IPs for %s/%s", nfReconfig.Spec.ClusterInfo[0].NFDeployment.Namespace, nfReconfig.Spec.ClusterInfo[0].NFDeployment.Name)
+		commitMsg := fmt.Sprintf("Update interface IPs for %s/%s", clusterInfo.NFDeployment.Namespace, clusterInfo.NFDeployment.Name)
 
 		username, password, _, err := giteaclient2.GetGiteaSecretUserNamePassword(ctx, r.Client)
 		if err != nil {
@@ -190,10 +190,95 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 		}
 
 		log.Info("Changes committed and pushed", "repo", clusterInfo.Repo)
+
+		//handle dependent cluster pkg nfs
+		err = r.HandleDependentClusterPkgNF(ctx, giteaclient, nfReconfig)
+		if err != nil {
+			log.Error(err, "failed to commit and push dependent nfs configs")
+			return err
+		}
 	}
 
 	return err
 
+}
+
+func (r *NFReconfigReconciler) HandleDependentClusterPkgNF(ctx context.Context, giteaclient giteaclient.GiteaClient, nfReconfig *cudureconfigv1.NFReconfig) error {
+	log := logf.FromContext(ctx)
+
+	user, _, err := giteaclient.GetMyUserInfo()
+	if err != nil {
+		return err
+	}
+
+	//get all repositories
+	repos, resp, err := giteaclient.Get().ListMyRepos(gitea.ListReposOptions{})
+	if err != nil {
+		log.Error(err, "Failed to list Gitea repositories", "response", resp)
+	}
+	if len(repos) == 0 {
+		log.Info("No repositories found for user", "username", user.UserName)
+	}
+
+	for _, clusterInfo := range nfReconfig.Spec.ClusterInfo {
+
+		//check if has NFDeployment key
+		if clusterInfo.ConfigRef == (cudureconfigv1.ConfigRef{}) {
+			continue
+		}
+
+		tmpDir, matches, err := helpers.CheckRepoForMatchingManifests(ctx, clusterInfo.Repo, "main", &clusterInfo, "ConfigRef")
+		if err != nil {
+			log.Error(err, "error scanning repo", "repo", clusterInfo.Name)
+			return err
+		}
+		if len(matches) > 0 {
+			log.Info("Found matching manifests",
+				"repo", clusterInfo.Name,
+				"tmpDir", tmpDir,
+				"files", matches)
+
+			// build new IP map from nfReconfig.Spec.Interfaces
+			newIPs := map[string]helpers.IPInfo{}
+
+			for _, iface := range nfReconfig.Spec.Interfaces {
+				if iface.IPv4.Address != "" || iface.IPv4.Gateway != "" {
+					newIPs[iface.Name] = helpers.IPInfo{
+						Address: iface.IPv4.Address,
+						Gateway: iface.IPv4.Gateway,
+					}
+				}
+			}
+
+			for _, f := range matches {
+				// fullPath := filepath.Join(tmpDir, f)
+				if err := helpers.UpdateInterfaceIPsConfigRefs(f, newIPs); err != nil {
+					log.Error(err, "failed to update IPs in manifest", "file", f)
+					return err
+				}
+				log.Info("Updated IPs in manifest", "file", f)
+			}
+
+			// commit & push changes back to Gitea
+			log.Info("will commit and push changes back to git here")
+			commitMsg := fmt.Sprintf("Update interface IPs for %s/%s", nfReconfig.Spec.ClusterInfo[0].NFDeployment.Namespace, nfReconfig.Spec.ClusterInfo[0].NFDeployment.Name)
+
+			username, password, _, err := giteaclient2.GetGiteaSecretUserNamePassword(ctx, r.Client)
+			if err != nil {
+				log.Error(err, "failed to get gitea")
+				return err
+			}
+
+			if err := helpers.CommitAndPush(ctx, tmpDir, "main", clusterInfo.Repo, username, password, commitMsg); err != nil {
+				log.Error(err, "failed to commit & push changes")
+				return err
+			}
+
+			log.Info("Changes committed and pushed", "repo", clusterInfo.Repo)
+		}
+	}
+
+	return err
 }
 
 func (r *NFReconfigReconciler) InitializeGiteaClient(ctx context.Context) (giteaclient.GiteaClient, *gitea.User, error) {
