@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	"code.gitea.io/sdk/gitea"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,6 +30,7 @@ import (
 	"github.com/nephio-project/nephio/controllers/pkg/resource"
 	cudureconfigv1 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/api/v1"
 	giteaclient "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/gitaclient"
+	giteaclient2 "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/gitaclient"
 	"github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/helpers"
 )
 
@@ -150,6 +152,44 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 			"repo", clusterInfo.Name,
 			"tmpDir", tmpDir,
 			"files", matches)
+
+		// build new IP map from nfReconfig.Spec.Interfaces
+		newIPs := map[string]helpers.IPInfo{}
+
+		for _, iface := range nfReconfig.Spec.Interfaces {
+			if iface.IPv4.Address != "" || iface.IPv4.Gateway != "" {
+				newIPs[iface.Name] = helpers.IPInfo{
+					Address: iface.IPv4.Address,
+					Gateway: iface.IPv4.Gateway,
+				}
+			}
+		}
+
+		for _, f := range matches {
+			// fullPath := filepath.Join(tmpDir, f)
+			if err := helpers.UpdateInterfaceIPs(f, newIPs); err != nil {
+				log.Error(err, "failed to update IPs in manifest", "file", f)
+				return err
+			}
+			log.Info("Updated IPs in manifest", "file", f)
+		}
+
+		// commit & push changes back to Gitea
+		log.Info("will commit and push changes back to git here")
+		commitMsg := fmt.Sprintf("Update interface IPs for %s/%s", nfReconfig.Spec.ClusterInfo[0].NFDeployment.Namespace, nfReconfig.Spec.ClusterInfo[0].NFDeployment.Name)
+
+		username, password, _, err := giteaclient2.GetGiteaSecretUserNamePassword(ctx, r.Client)
+		if err != nil {
+			log.Error(err, "failed to get gitea")
+			return err
+		}
+
+		if err := helpers.CommitAndPush(ctx, tmpDir, "main", clusterInfo.Repo, username, password, commitMsg); err != nil {
+			log.Error(err, "failed to commit & push changes")
+			return err
+		}
+
+		log.Info("Changes committed and pushed", "repo", clusterInfo.Repo)
 	}
 
 	return err

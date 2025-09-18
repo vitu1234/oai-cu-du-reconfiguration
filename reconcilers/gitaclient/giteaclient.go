@@ -28,7 +28,9 @@ import (
 	"github.com/nephio-project/nephio/controllers/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type GiteaClient interface {
@@ -76,20 +78,13 @@ func GetClient(ctx context.Context, client resource.APIPatchingApplicator) (Gite
 	return singleInstance, nil
 }
 
-type gc struct {
-	client resource.APIPatchingApplicator
-
-	giteaClient *gitea.Client
-	l           logr.Logger
-}
-
-func (r *gc) Start(ctx context.Context) {
-	r.l = log.FromContext(ctx)
+func GetGiteaSecretUserNamePassword(ctx context.Context, client client.Client) (username, password, giturl string, erro error) {
+	log := logf.FromContext(ctx)
 
 	// Get Git server URL from environment variable
 	gitURL := os.Getenv("GIT_SERVER_URL")
 	if gitURL == "" {
-		r.l.Error(fmt.Errorf("GIT_SERVER_URL environment variable not set"), "Failed to initialize git client")
+		log.Error(fmt.Errorf("GIT_SERVER_URL environment variable not set"), "Failed to initialize git client")
 		return
 	}
 
@@ -110,20 +105,39 @@ func (r *gc) Start(ctx context.Context) {
 
 	// Get the secret containing Git credentials
 	secret := &corev1.Secret{}
-	err := r.client.Get(ctx, types.NamespacedName{
+	err := client.Get(ctx, types.NamespacedName{
 		Name:      gitSecretName,
 		Namespace: gitSecretNamespace,
 	}, secret)
 	if err != nil {
-		r.l.Error(err, "Failed to get git credentials secret")
-		return
+		log.Error(err, "Failed to get git credentials secret")
+		return "", "", "", err
 	}
 
+	return string(secret.Data["username"]), string(secret.Data["password"]), gitURL, nil
+
+}
+
+type gc struct {
+	client resource.APIPatchingApplicator
+
+	giteaClient *gitea.Client
+	l           logr.Logger
+}
+
+func (r *gc) Start(ctx context.Context) {
+	r.l = log.FromContext(ctx)
+
+	username, password, gitURL, err := GetGiteaSecretUserNamePassword(ctx, r.client)
+	if err != nil {
+		r.l.Error(err, "Failed to get gitea username and password from secret, make sure it exists")
+		return
+	}
 	// Initialize Gitea client with URL and credentials
 	client, err := gitea.NewClient(gitURL,
 		gitea.SetBasicAuth(
-			string(secret.Data["username"]),
-			string(secret.Data["password"]),
+			username,
+			password,
 		))
 	if err != nil {
 		r.l.Error(err, "Failed to create gitea client")
