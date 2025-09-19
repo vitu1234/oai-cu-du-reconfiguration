@@ -67,8 +67,9 @@ type ConfigRef struct {
 }
 
 type NFInterface struct {
-	Name string `json:"name"`
-	IPv4 *IPv4  `json:"ipv4,omitempty"`
+	Name          string `json:"name"`
+	HostInterface string `json:"hostInterface"`
+	IPv4          *IPv4  `json:"ipv4,omitempty"`
 }
 
 type IPv4 struct {
