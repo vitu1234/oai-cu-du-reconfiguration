@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"code.gitea.io/sdk/gitea"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -232,6 +233,7 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 			log.Error(err, "failed to commit and push dependent nfs configs")
 			return err
 		}
+
 	}
 
 	return err
@@ -348,13 +350,20 @@ func (r *NFReconfigReconciler) HandleDependentClusterPkgNF(ctx context.Context, 
 		}
 	}
 
+	// log.Info("argocd apps length " + string(strconv.Itoa(len(uniqueApps))))
+
 	for _, app := range uniqueApps {
-		err := helpers.TriggerArgoCDSyncWithKubeClient(app.Client, app.Name, app.Namespace)
-		if err != nil {
-			log.Error(err, "error occurred syncing ArgoCD for "+app.Name)
-		} else {
-			log.Info("Successfully triggered ArgoCD sync for " + app.Name)
+		for i := 1; i <= 2; i++ { // sync twice
+			err := helpers.TriggerArgoCDSyncWithKubeClient(app.Client, app.Name, app.Namespace)
+			if err != nil {
+				log.Error(err, "error occurred syncing ArgoCD for "+app.Name)
+			} else {
+				log.Info("Successfully triggered ArgoCD sync for " + app.Name)
+			}
+			// wait for 4 seconds before the next sync or next app
+			time.Sleep(4 * time.Second)
 		}
+
 	}
 
 	return nil

@@ -87,6 +87,8 @@ spec:
               interfaces:
                 items:
                   properties:
+                    hostInterface:
+                      type: string
                     ipv4:
                       properties:
                         address:
@@ -100,6 +102,7 @@ spec:
                     name:
                       type: string
                   required:
+                  - hostInterface
                   - name
                   type: object
                 type: array
