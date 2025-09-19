@@ -53,6 +53,13 @@ type ArgoAppSync struct {
 	Client    client.Client
 }
 
+type ArgoAppSkipResourcesIgnoreDifferences struct {
+	Group        string   `json:"group,omitempty"`
+	Kind         string   `json:"kind,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	JsonPointers []string `json:"jsonPointers,omitempty"`
+}
+
 // +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs/finalizers,verbs=update
@@ -231,14 +238,29 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 		if err != nil {
 			log.Error(err, "error occured deleting nfdeployment resources for "+clusterInfo.Name)
 		}
+		targetCluster := clusterInfo.TargetCluster
+
+		//create argo app for target cluster, push it to the repo and sync it with the newly created workload cluster client
+		// we have to push argo app to the same folder
+		_, err = helpers.CreateAndPushArgoApp(ctx, giteaclient.Get(), username, clusterInfo.Name, ".", clusterInfo.Repo, targetCluster.Name, log)
+		if err != nil {
+			log.Error(err, "failed to push argo app for the target cluster")
+		}
+
+		//get target cluster workloadcluster client
+		targetClusterWorkloadClusterClient, err := helpers.GetWorkloadClusterClient(ctx, r.Client, targetCluster.Name)
+		if err != nil {
+			log.Error(err, "error occured getting workload cluster client for "+targetCluster.Name)
+		}
 
 		//make argocd sync
-		err = helpers.TriggerArgoCDSyncWithKubeClient(workloadClusterClient, clusterInfo.Name, "argocd")
+		err = helpers.TriggerArgoCDSyncWithKubeClient(targetClusterWorkloadClusterClient, targetCluster.Name, "argocd")
 		if err != nil {
-			log.Error(err, "error occured syncing argocd for "+clusterInfo.Name)
+			log.Error(err, "error occured syncing argocd for "+targetCluster.Name)
 		}
 
 		log.Info("Changes committed and pushed", "repo", clusterInfo.Repo)
+		log.Info("synced argo app for", "repo", targetCluster.Repo)
 
 		//handle dependent cluster pkg nfs
 		err = r.HandleDependentClusterPkgNF(ctx, giteaclient, nfReconfig)

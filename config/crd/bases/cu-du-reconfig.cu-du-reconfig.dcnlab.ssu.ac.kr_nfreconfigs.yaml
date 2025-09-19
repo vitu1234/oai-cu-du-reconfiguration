@@ -82,8 +82,11 @@ spec:
                       properties:
                         name:
                           type: string
+                        repo:
+                          type: string
                       required:
                       - name
+                      - repo
                       type: object
                   required:
                   - clusterType

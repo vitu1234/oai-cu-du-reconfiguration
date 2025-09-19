@@ -473,3 +473,5 @@ func ListArgoApplications(ctx context.Context, k8sClient client.Client) error {
 	}
 	return nil
 }
+
+//create new argo app and push to the target cluster

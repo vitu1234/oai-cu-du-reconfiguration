@@ -58,6 +58,7 @@ type ClusterInfo struct {
 
 type TargetCluster struct {
 	Name string `json:"name"`
+	Repo string `json:"repo"`
 }
 
 type NFDeployment struct {
