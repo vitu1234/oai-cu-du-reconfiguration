@@ -15,8 +15,8 @@ spec:
         name: cucp-regional
         namespace: oai-ran-cucp
       targetCluster: #where to migrate the resource to
-        name: cluster1-capo
-        repo: http://192.168.28.111:31650/nephio/cluster1-capo.git
+        name: demoregional
+        repo: http://192.168.28.111:31650/nephio/demoregional.git
     - name: edge
       repo: http://192.168.28.111:31650/nephio/edge.git
       clusterType: DU
