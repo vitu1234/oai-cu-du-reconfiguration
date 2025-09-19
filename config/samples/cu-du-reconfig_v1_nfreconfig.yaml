@@ -35,14 +35,17 @@ spec:
   provider: cucp.openairinterface.org
   interfaces:  #CU new node configs NAD
   - name: n2
+    hostInterface: ens7
     ipv4:
       address: 192.168.8.55/24 #CUCP_N2_IP
       gateway: 192.168.8.1 #CUCP_N2_GW
   - name: f1c
+    hostInterface: ens9
     ipv4:
       address: 192.168.10.21/24 #CUCP_F1C_IP
       gateway: 192.168.10.1 #CUCP_F1C_GW
   - name: e1
+    hostInterface: ens8
     ipv4:
       address: 192.168.11.20/24 #CUCP_E1_IP
       gateway: 192.168.11.1 #CUCP_E1_GW
