@@ -268,7 +268,7 @@ func CommitAndPush(ctx context.Context, cloneDir, branch, repoURL, userName, pas
 	return nil
 }
 
-// argocd sync
+// argocd sync | below is original
 func TriggerArgoCDSyncWithKubeClient(k8sClient client.Client, appName, namespace string) error {
 	ctx := context.TODO()
 

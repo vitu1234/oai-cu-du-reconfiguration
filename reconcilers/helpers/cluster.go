@@ -5,6 +5,7 @@ import (
 
 	capictrl "github.com/vitu1234/oai-cu-du-reconfiguration/v1/reconcilers/capi"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	capiv1beta1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -86,20 +87,32 @@ func DeleteNFDeployment(ctx context.Context, k8sClient client.Client,
 // DeleteNFDeployment deletes the given NFDeployment resource and all its Pods
 // DeleteNFDeployment deletes the NFDeployment CR and matching pods
 func DeleteConfigRefs(ctx context.Context, k8sClient client.Client,
-	name, namespace string) error {
+	nameConfig, namespaceConfig, nameNFDeployment, namespaceNFDeployment string) error {
+	log := logf.FromContext(ctx)
+
+	//log all parameters
+	log.Info("nameconfig: " + nameConfig + " | namespaceconfig: " + namespaceConfig + "")
+	log.Info("namenfdeployment: " + nameNFDeployment + " | namespaceconfig: " + namespaceNFDeployment + "")
 
 	// 1. Delete the NFDeployment custom resource
 	nf := &unstructured.Unstructured{}
 	nf.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "workload.nephio.org",
+		Group:   "ref.nephio.org",
 		Version: "v1alpha1",
 		Kind:    "Config",
 	})
-	nf.SetName(name)
-	nf.SetNamespace(namespace)
+	nf.SetName(nameConfig)
+	nf.SetNamespace(namespaceConfig)
 
 	if err := k8sClient.Delete(ctx, nf); err != nil {
-		return err
+		if err != nil {
+			// if the resource is not found, treat it as a successful no-op
+			if errors.IsNotFound(err) { // or apierrors.IsNotFound(err)
+				log.Info("config resource not found to delete, probably already deleted, skipping ")
+			} else {
+				return err
+			}
+		}
 	}
 
 	// 2.delete all pods in the namespace
@@ -107,10 +120,26 @@ func DeleteConfigRefs(ctx context.Context, k8sClient client.Client,
 	if err := k8sClient.DeleteAllOf(
 		ctx,
 		&corev1.Pod{},
-		client.InNamespace(namespace),
+		client.InNamespace(namespaceConfig),
 	); err != nil {
-		return err
+		//if error is not found, don't flag as error
+
+		if err != nil {
+			// if the resource is not found, treat it as a successful no-op
+			if errors.IsNotFound(err) { // or apierrors.IsNotFound(err)
+				log.Info("resource not found to delete, probably already deleted")
+			} else {
+				return err
+			}
+		}
+
 	}
 
+	// delete NF deployment as well
+	err := DeleteNFDeployment(ctx, k8sClient, nameNFDeployment, namespaceNFDeployment)
+	if err != nil {
+		log.Error(err, "failed to delete NFDeployment resources after deleting Config. nfdeployment: "+nameNFDeployment)
+		return err
+	}
 	return nil
 }

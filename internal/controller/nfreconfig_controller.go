@@ -45,6 +45,12 @@ type NFReconfigReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+type ArgoAppSync struct {
+	Name      string
+	Namespace string
+	Client    client.Client
+}
+
 // +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cu-du-reconfig.cu-du-reconfig.dcnlab.ssu.ac.kr,resources=nfreconfigs/finalizers,verbs=update
@@ -249,6 +255,8 @@ func (r *NFReconfigReconciler) HandleDependentClusterPkgNF(ctx context.Context, 
 		log.Info("No repositories found for user", "username", user.UserName)
 	}
 
+	uniqueApps := make(map[string]ArgoAppSync)
+
 	for _, clusterInfo := range nfReconfig.Spec.ClusterInfo {
 
 		//check if has NFDeployment key
@@ -318,20 +326,38 @@ func (r *NFReconfigReconciler) HandleDependentClusterPkgNF(ctx context.Context, 
 			}
 
 			//delete existing pods in the cluster
-			err = helpers.DeleteConfigRefs(ctx, workloadClusterClient, clusterInfo.NFDeployment.Name, clusterInfo.NFDeployment.Namespace)
+			err = helpers.DeleteConfigRefs(ctx, workloadClusterClient, clusterInfo.ConfigRef.Name, clusterInfo.ConfigRef.Namespace, clusterInfo.ConfigRef.NFDeployment.Name, clusterInfo.ConfigRef.NFDeployment.Namespace)
 			if err != nil {
 				log.Error(err, "error occured deleting nfdeployment resources for "+clusterInfo.Name)
 			}
 
-			//make argocd sync
-			err = helpers.TriggerArgoCDSyncWithKubeClient(workloadClusterClient, clusterInfo.Name, "argocd")
-			if err != nil {
-				log.Error(err, "error occured syncing argocd for "+clusterInfo.Name)
+			key := fmt.Sprintf("%s/%s", clusterInfo.Name, "argocd") // namespace here is argocd
+			if _, exists := uniqueApps[key]; !exists {
+				uniqueApps[key] = ArgoAppSync{
+					Name:      clusterInfo.Name,
+					Namespace: "argocd",
+					Client:    workloadClusterClient,
+				}
 			}
+
+			//make argocd sync
+			// err = helpers.TriggerArgoCDSyncWithKubeClient(workloadClusterClient, clusterInfo.Name, "argocd")
+			// if err != nil {
+			// 	log.Error(err, "error occured syncing argocd for "+clusterInfo.Name)
+			// }
 		}
 	}
 
-	return err
+	for _, app := range uniqueApps {
+		err := helpers.TriggerArgoCDSyncWithKubeClient(app.Client, app.Name, app.Namespace)
+		if err != nil {
+			log.Error(err, "error occurred syncing ArgoCD for "+app.Name)
+		} else {
+			log.Info("Successfully triggered ArgoCD sync for " + app.Name)
+		}
+	}
+
+	return nil
 }
 
 func (r *NFReconfigReconciler) InitializeGiteaClient(ctx context.Context) (giteaclient2.GiteaClient, *gitea.User, error) {

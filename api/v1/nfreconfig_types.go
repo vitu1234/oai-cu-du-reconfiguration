@@ -61,8 +61,9 @@ type NFDeployment struct {
 }
 
 type ConfigRef struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
+	Name         string       `json:"name"`
+	Namespace    string       `json:"namespace"`
+	NFDeployment NFDeployment `json:"nfDeployment,omitempty"`
 }
 
 type NFInterface struct {

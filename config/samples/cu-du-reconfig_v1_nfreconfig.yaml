@@ -17,17 +17,23 @@ spec:
     - name: edge
       repo: http://192.168.28.111:31650/nephio/edge.git
       clusterType: DU
-      configRef:
+      configRef: #NF DU config --> Config resource
         name: oai-cucp-config
         namespace: oai-ran-du
+        nfDeployment: #NF DU config --> NFDeployment resource
+          name: du-edge
+          namespace: oai-ran-du
     - name: edge
       repo: http://192.168.28.111:31650/nephio/edge.git
       clusterType: CUUP
-      configRef:
+      configRef: #NF CUUP config --> Config resource
         name: oai-cucp-config
         namespace: oai-ran-cuup
+        nfDeployment:   #NF CUUP config --> NFDeployment resource
+          name: cuup-edge
+          namespace: oai-ran-cuup
   provider: cucp.openairinterface.org
-  interfaces:
+  interfaces:  #CU new node configs NAD
   - name: n2
     ipv4:
       address: 192.168.8.55/24 #CUCP_N2_IP
