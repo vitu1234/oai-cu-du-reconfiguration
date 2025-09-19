@@ -78,6 +78,13 @@ spec:
                       type: object
                     repo:
                       type: string
+                    targetCluster:
+                      properties:
+                        name:
+                          type: string
+                      required:
+                      - name
+                      type: object
                   required:
                   - clusterType
                   - name
@@ -101,9 +108,15 @@ spec:
                       type: object
                     name:
                       type: string
+                    nameNad:
+                      type: string
+                    namespaceNad:
+                      type: string
                   required:
                   - hostInterface
                   - name
+                  - nameNad
+                  - namespaceNad
                   type: object
                 type: array
               networkInstances:

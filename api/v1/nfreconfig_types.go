@@ -48,11 +48,16 @@ type NFReconfigSpec struct {
 }
 
 type ClusterInfo struct {
-	Name         string       `json:"name"`
-	Repo         string       `json:"repo"`
-	NFDeployment NFDeployment `json:"nfDeployment,omitempty"`
-	ClusterType  ClusterType  `json:"clusterType"`
-	ConfigRef    ConfigRef    `json:"configRef,omitempty"`
+	Name          string        `json:"name"`
+	Repo          string        `json:"repo"`
+	NFDeployment  NFDeployment  `json:"nfDeployment,omitempty"`
+	ClusterType   ClusterType   `json:"clusterType"`
+	TargetCluster TargetCluster `json:"targetCluster,omitempty"`
+	ConfigRef     ConfigRef     `json:"configRef,omitempty"`
+}
+
+type TargetCluster struct {
+	Name string `json:"name"`
 }
 
 type NFDeployment struct {
@@ -68,6 +73,8 @@ type ConfigRef struct {
 
 type NFInterface struct {
 	Name          string `json:"name"`
+	NameNad       string `json:"nameNad"`
+	NamespaceNad  string `json:"namespaceNad"`
 	HostInterface string `json:"hostInterface"`
 	IPv4          *IPv4  `json:"ipv4,omitempty"`
 }

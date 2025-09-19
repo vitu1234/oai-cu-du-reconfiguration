@@ -3,7 +3,10 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -26,6 +29,15 @@ import (
 type IPInfo struct {
 	Address string
 	Gateway string
+}
+
+type NadMasterInterface struct {
+	MasterInterfaceHost string
+}
+
+type MatchingNadFiles struct {
+	File string
+	Name string
 }
 
 // CheckRepoForMatchingManifests clones a repo and searches YAML files for a name/namespace match.
@@ -112,6 +124,78 @@ func CheckRepoForMatchingManifests(ctx context.Context, repoURL string, branch s
 	}
 
 	return tmpDir, matches, nil
+}
+
+// FindMatchingNADs walks a directory tree and returns all files containing
+// NetworkAttachmentDefinition objects that match any of the provided nfconfigInterfaces.
+func FindMatchingNADs(ctx context.Context, baseDir string, nfconfigInterfaces []cudureconfigv1.NFInterface) ([]string, error) {
+	log := logf.FromContext(ctx)
+	var matchingNadFiles []string
+	// log := logf.FromContext(ctx)
+	walkFn := func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		dec := yaml.NewDecoder(bytes.NewReader(data))
+		for {
+			var obj struct {
+				APIVersion string `yaml:"apiVersion"`
+				Kind       string `yaml:"kind"`
+				Metadata   struct {
+					Name      string `yaml:"name"`
+					Namespace string `yaml:"namespace"`
+				} `yaml:"metadata"`
+			}
+
+			err := dec.Decode(&obj)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return err
+			}
+
+			if strings.EqualFold(obj.Kind, "NetworkAttachmentDefinition") {
+				for _, n := range nfconfigInterfaces {
+					// log.Info("file................" + obj.Metadata.Name + " --- " + obj.Metadata.Namespace)
+					// log.Info("nfconfig................" + n.NameNad + " --- " + n.NamespaceNad)
+
+					if obj.Metadata.Name == n.NameNad &&
+						obj.Metadata.Namespace == n.NamespaceNad {
+						matchingNadFiles = append(matchingNadFiles, path)
+						// continue decoding in case file contains multiple docs
+						// break
+
+						// Call the helper to update master immediately
+						if err := UpdateNADMaster(path, n.HostInterface); err != nil {
+							log.Error(err, "failed to update NAD master", "file", path)
+							return err
+						}
+					}
+				}
+			}
+		}
+		return nil
+	}
+
+	if err := filepath.WalkDir(baseDir, walkFn); err != nil {
+		return nil, err
+	}
+
+	return matchingNadFiles, nil
 }
 
 func UpdateInterfaceIPsNFDeployment(path string, newIPs map[string]IPInfo) error {
@@ -211,6 +295,58 @@ func UpdateInterfaceIPsConfigRefs(path string, newIPs map[string]IPInfo) error {
 		}
 	}
 
+	out, err := yaml.Marshal(doc)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, out, 0644)
+}
+
+// using the same nested-drill-down approach as UpdateInterfaceIPsNFDeployment.
+// UpdateNADMaster updates the "master" field in a
+// NetworkAttachmentDefinition (NAD) manifest on disk.
+// UpdateNADMaster updates only the "master" value inside spec.config,
+// preserving the JSON-string format of a NAD manifest.
+func UpdateNADMaster(path string, newMaster string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	var doc map[string]interface{}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return err
+	}
+
+	spec, ok := doc["spec"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("missing spec in %s", path)
+	}
+
+	// spec.config is a JSON string – keep it that way
+	configStr, ok := spec["config"].(string)
+	if !ok {
+		return fmt.Errorf("spec.config is not a string in %s", path)
+	}
+
+	// Parse JSON (not YAML) because it is real JSON
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(configStr), &cfg); err != nil {
+		return fmt.Errorf("decode spec.config JSON: %w", err)
+	}
+
+	// Update only the master field
+	cfg["master"] = newMaster
+
+	// Marshal back to a compact one-line JSON string
+	newConfigBytes, err := json.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("encode spec.config JSON: %w", err)
+	}
+	spec["config"] = string(newConfigBytes)
+
+	// Marshal the whole document back to YAML
 	out, err := yaml.Marshal(doc)
 	if err != nil {
 		return err

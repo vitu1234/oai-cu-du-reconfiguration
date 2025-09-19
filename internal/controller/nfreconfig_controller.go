@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"code.gitea.io/sdk/gitea"
@@ -164,6 +165,18 @@ func (r *NFReconfigReconciler) HandleTargetClusterPkgNF(ctx context.Context, clu
 			"repo", clusterInfo.Name,
 			"tmpDir", tmpDir,
 			"files", matches)
+
+		//get matching NAD resources as well
+		filesNads, err := helpers.FindMatchingNADs(ctx, tmpDir, nfReconfig.Spec.Interfaces)
+		if err != nil {
+			log.Error(err, "an error occure fetching matching nads")
+		}
+		log.Info("Found NAD files matching success: " + strconv.Itoa(len(filesNads)))
+
+		for _, file := range filesNads {
+			log.Info("nad found file: " + file)
+
+		}
 
 		// build new IP map from nfReconfig.Spec.Interfaces
 		newIPs := map[string]helpers.IPInfo{}
