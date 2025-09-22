@@ -9,12 +9,30 @@ kubebuilder init --domain cu-du-reconfig.dcnlab.ssu.ac.kr --repo github.com/vitu
 kubebuilder create api --group cu-du-reconfig --version v1 --kind NFReconfig
 ```
 
+### Running the controller
+- run the following commands
+```sh
+make generate 
+make manifests
+make install
+make run
+```
+### Apply the sample NFReconfig resource in /config/samples/cu-du-reconfig_v1_nfreconfig.yaml
+```sh
+kubectl apply -f /config/samples/cu-du-reconfig_v1_nfreconfig.yaml
+```
+
+- Change the configurations matching your usecase and clusters in the config
+
 ---
 
 ## Features
 
 - Replace NAD interface with regional and edge configurations.
 - Delete edge cluster's Config and NF deployment resources for CU-UP and DU.
+- Diassociate CU-DU coupling
+- Reassociate new DU-CU coupling
+
 
 ---
 
